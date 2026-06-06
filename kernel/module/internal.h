@@ -55,6 +55,10 @@ extern const struct kernel_symbol __start___ksymtab[];
 extern const struct kernel_symbol __stop___ksymtab[];
 extern const u32 __start___kcrctab[];
 extern const u8 __start___kflagstab[];
+#ifdef CONFIG_MODULE_SIG_PROTECT
+extern const char *__start___kexporttab[];
+extern const char *__stop___kexporttab[];
+#endif
 
 #define KMOD_PATH_LEN 256
 extern char modprobe_path[];
@@ -108,6 +112,7 @@ struct find_symbol_arg {
 	const u32 *crc;
 	const struct kernel_symbol *sym;
 	enum mod_license license;
+	bool is_protected;
 };
 
 /* modules using other modules */
@@ -421,17 +426,3 @@ static inline int same_magic(const char *amagic, const char *bmagic, bool has_cr
 	return strcmp(amagic, bmagic) == 0;
 }
 #endif /* CONFIG_MODVERSIONS */
-
-#ifdef CONFIG_MODULE_SIG_PROTECT
-extern bool gki_is_module_unprotected_symbol(const char *name);
-extern bool gki_is_module_protected_export(const char *name);
-#else
-static inline bool gki_is_module_unprotected_symbol(const char *name)
-{
-	return true;
-}
-static inline bool gki_is_module_protected_export(const char *name)
-{
-	return false;
-}
-#endif /* CONFIG_MODULE_SIG_PROTECT */

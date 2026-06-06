@@ -191,10 +191,13 @@ cleanup:
 
 	/* Expose all pages to the buddy, they are useless for CMA. */
 	if (!test_bit(CMA_RESERVE_PAGES_ON_ERROR, &cma->flags)) {
-		for (r = 0; r < allocrange; r++) {
+		for (r = 0; r < cma->nranges; r++) {
+			unsigned long start_pfn;
+
 			cmr = &cma->ranges[r];
+			start_pfn = r <= allocrange ? early_pfn[r] : cmr->early_pfn;
 			end_pfn = cmr->base_pfn + cmr->count;
-			for (pfn = early_pfn[r]; pfn < end_pfn; pfn++)
+			for (pfn = start_pfn; pfn < end_pfn; pfn++)
 				free_reserved_page(pfn_to_page(pfn));
 		}
 	}
@@ -801,6 +804,7 @@ static int cma_range_alloc(struct cma *cma, struct cma_memrange *cmr,
 		goto out;
 
 	for (start = 0; ; start = bitmap_no + mask + 1) {
+retry:
 		spin_lock_irq(&cma->lock);
 		/*
 		 * If the request is larger than the available number
@@ -832,7 +836,7 @@ static int cma_range_alloc(struct cma *cma, struct cma_memrange *cmr,
 				ret = -ENOMEM;
 				schedule_timeout_killable(msecs_to_jiffies(100));
 				num_attempts++;
-				continue;
+				goto retry;
 			} else {
 				spin_unlock_irq(&cma->lock);
 				break;

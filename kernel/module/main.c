@@ -380,6 +380,7 @@ static bool find_exported_symbol_in_section(const struct symsearch *syms,
 	fsa->crc = symversion(syms->crcs, sym - syms->start);
 	fsa->sym = sym;
 	fsa->license = (sym_flags & KSYM_FLAG_GPL_ONLY) ? GPL_ONLY : NOT_GPL_ONLY;
+	fsa->is_protected = sym_flags & KSYM_FLAG_PROTECTED;
 
 	return true;
 }
@@ -1264,8 +1265,6 @@ static const struct kernel_symbol *resolve_symbol(struct module *mod,
 						  const char *name,
 						  char ownername[])
 {
-	bool is_vendor_module;
-	bool is_vendor_exported_symbol;
 	struct find_symbol_arg fsa = {
 		.name	= name,
 		.gplok	= !(mod->taints & (1 << TAINT_PROPRIETARY_MODULE)),
@@ -1302,23 +1301,14 @@ static const struct kernel_symbol *resolve_symbol(struct module *mod,
 		goto getname;
 	}
 
-	/*
-	 * ANDROID GKI
-	 *
-	 * Vendor (i.e., unsigned) modules are only permitted to use:
-	 *
-	 * 1. symbols exported by other vendor (unsigned) modules
-	 * 2. unprotected symbols
-	 */
-	is_vendor_module = !mod->sig_ok;
-	is_vendor_exported_symbol = fsa.owner && !fsa.owner->sig_ok;
-
-	if (is_vendor_module &&
-	    !is_vendor_exported_symbol &&
-	    !gki_is_module_unprotected_symbol(name)) {
+#ifdef CONFIG_MODULE_SIG
+	if (fsa.is_protected && !mod->sig_ok) {
+		pr_warn("%s: Cannot use protected symbol %s\n",
+			mod->name, name);
 		fsa.sym = ERR_PTR(-EACCES);
 		goto getname;
 	}
+#endif
 
 	err = ref_module(mod, fsa.owner);
 	if (err) {
@@ -1509,6 +1499,20 @@ void *__symbol_get(const char *symbol)
 }
 EXPORT_SYMBOL_GPL(__symbol_get);
 
+#ifdef CONFIG_MODULE_SIG_PROTECT
+static int cmp_string(const void *a, const void *b)
+{
+	return strcmp(*(const char **)a, *(const char **)b);
+}
+
+static bool is_protected_export(const struct kernel_symbol *sym)
+{
+	return bsearch(kernel_symbol_name(sym), __start___kexporttab,
+		       __stop___kexporttab - __start___kexporttab,
+		       sizeof(const char *), cmp_string) != NULL;
+}
+#endif
+
 /*
  * Ensure that an exported symbol [global namespace] does not already exist
  * in the kernel or in some other module's exported symbol table.
@@ -1523,18 +1527,19 @@ static int verify_exported_symbols(struct module *mod)
 			.name	= kernel_symbol_name(s),
 			.gplok	= true,
 		};
-		if (!mod->sig_ok && gki_is_module_protected_export(
-					kernel_symbol_name(s))) {
-			pr_err("%s: exports protected symbol %s\n",
-			       mod->name, kernel_symbol_name(s));
-			return -EACCES;
-		}
 		if (find_symbol(&fsa)) {
 			pr_err("%s: exports duplicate symbol %s (owned by %s)\n",
 				mod->name, kernel_symbol_name(s),
 				module_name(fsa.owner));
 			return -ENOEXEC;
 		}
+#ifdef CONFIG_MODULE_SIG_PROTECT
+		if (!mod->sig_ok && is_protected_export(s)) {
+			pr_err("%s: exports protected symbol %s\n",
+			       mod->name, kernel_symbol_name(s));
+			return -EACCES;
+		}
+#endif
 	}
 	return 0;
 }
@@ -1607,15 +1612,9 @@ static int simplify_symbols(struct module *mod, const struct load_info *info)
 			     ignore_undef_symbol(info->hdr->e_machine, name)))
 				break;
 
-			if (PTR_ERR(ksym) == -EACCES) {
-				ret = -EACCES;
-				pr_warn("%s: Protected symbol: %s (err %d)\n",
-					mod->name, name, ret);
-			} else {
-				ret = PTR_ERR(ksym) ?: -ENOENT;
-				pr_warn("%s: Unknown symbol %s (err %d)\n",
-					mod->name, name, ret);
-			}
+			ret = PTR_ERR(ksym) ?: -ENOENT;
+			pr_warn("%s: Unknown symbol %s (err %d)\n",
+				mod->name, name, ret);
 			break;
 
 		default:
@@ -2645,8 +2644,6 @@ static void module_augment_kernel_taints(struct module *mod, struct load_info *i
 		add_taint_module(mod, TAINT_UNSIGNED_MODULE, LOCKDEP_STILL_OK);
 	}
 #endif
-#else
-	mod->sig_ok = 0;
 #endif
 
 	/*
