@@ -219,11 +219,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_sched_balance_rt,
 	TP_PROTO(struct rq *rq, struct task_struct *p, int *done),
 	TP_ARGS(rq, p, done), 1);
 
-DECLARE_RESTRICTED_HOOK(android_rvh_check_preempt_wakeup_fair,
-	TP_PROTO(struct rq *rq, struct task_struct *p, bool *preempt, bool *nopreempt,
-			int wake_flags, struct sched_entity *se, struct sched_entity *pse),
-	TP_ARGS(rq, p, preempt, nopreempt, wake_flags, se, pse), 1);
-
 DECLARE_RESTRICTED_HOOK(android_rvh_set_cpus_allowed_by_task,
 	TP_PROTO(const struct cpumask *cpu_valid_mask, const struct cpumask *new_mask,
 		 struct task_struct *p, unsigned int *dest_cpu),
@@ -294,10 +289,6 @@ DECLARE_HOOK(android_vh_do_wake_up_sync,
 DECLARE_HOOK(android_vh_set_wake_flags,
 	TP_PROTO(int *wake_flags, unsigned int *mode),
 	TP_ARGS(wake_flags, mode));
-
-DECLARE_RESTRICTED_HOOK(android_rvh_find_new_ilb,
-	TP_PROTO(struct cpumask *nohz_idle_cpus_mask, int *new_ilb),
-	TP_ARGS(nohz_idle_cpus_mask, new_ilb), 1);
 
 DECLARE_HOOK(android_vh_dup_task_struct,
 	TP_PROTO(struct task_struct *tsk, struct task_struct *orig),
