@@ -93,4 +93,15 @@ jobs:
           )
 
           git log -1 --format='%H%n%B' "$commit"
+
+          # The blobless clone lacks the new upstream blobs the push has to
+          # send. Fetch them from aosp in one batch; otherwise push lazy-fetches
+          # them from origin, which doesn't have them ("upload-pack: not our
+          # ref"), before falling back to aosp.
+          missing=$(git rev-list --objects --missing=print "$commit" --not "$base" | sed -n 's/^?//p')
+          if [ -n "$missing" ]; then
+            printf '%s\n' "$missing" |
+              git fetch --no-filter --no-tags --no-write-fetch-head --stdin aosp
+          fi
+
           git push origin "${commit}:refs/heads/${TARGET_BRANCH}"
