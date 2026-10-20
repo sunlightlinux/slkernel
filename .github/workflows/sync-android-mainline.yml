@@ -98,10 +98,14 @@ jobs:
           # send. Fetch them from aosp in one batch; otherwise push lazy-fetches
           # them from origin, which doesn't have them ("upload-pack: not our
           # ref"), before falling back to aosp.
+          # The noop negotiation sends no "have" lines: googlesource omits
+          # wanted blobs reachable from a have (the blobless upstream commit
+          # we already hold), failing with "did not send all necessary objects".
           missing=$(git rev-list --objects --missing=print "$commit" --not "$base" | sed -n 's/^?//p')
           if [ -n "$missing" ]; then
             printf '%s\n' "$missing" |
-              git fetch --no-filter --no-tags --no-write-fetch-head --stdin aosp
+              git -c fetch.negotiationAlgorithm=noop \
+                fetch --no-filter --no-tags --no-write-fetch-head --stdin aosp
           fi
 
           git push origin "${commit}:refs/heads/${TARGET_BRANCH}"
