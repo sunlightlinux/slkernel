@@ -39,9 +39,14 @@ touched files build.
 | nf5 | `4004a4a` | net: sock: increase default number of `_SK_MEM_PACKETS` to 1024 | default socket buffers ~832 KiB, not ~208 KiB |
 | nf5 | `9df054c` | net: sock: keep 64 KiB of forward allocation on uncharge | fewer accounting round trips; more memory held per socket |
 
+`4004a4a` changes only the *default* socket buffer sizes
+(`net.core.{r,w}mem_default`). Its commit message says the maximums grow as
+well; they do not: since a6d4f25888b8 ("net: set net.core.rmem_max and
+net.core.wmem_max to 4 MB") the maximums are a fixed 4 MiB.
+
 The timer slack and socket buffer defaults can be changed back where they do
 not fit: per service with slinit's `timer-slack-nsec`, and system-wide with
-the `net.core.{r,w}mem_{default,max}` sysctls.
+the `net.core.{r,w}mem_default` sysctls.
 
 ### Already in mainline
 
