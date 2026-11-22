@@ -2,19 +2,25 @@
 
 ## Scope
 
-slkernel holds the **kernel packaging and configuration** for Sunlight Linux —
-the build recipe and the kernel `.config` that produce the distribution's
-kernel. The kernel runs with full hardware privileges, so configuration and
-packaging choices here are security-relevant:
+slkernel holds the **kernel source** of Sunlight Linux — AOSP's
+`android-mainline` branches plus Sunlight's patches — and the CI that keeps it
+current; the build recipe and `.config` live in [slpkgs]. The kernel runs with
+full hardware privileges, so choices here are security-relevant:
 
 - **Kernel hardening options** — e.g. `CONFIG_STRICT_KERNEL_RWX`,
   `CONFIG_FORTIFY_SOURCE`, `CONFIG_RANDOMIZE_BASE`, `CONFIG_INIT_ON_ALLOC_DEFAULT_ON`.
 - **Module signing / lockdown** — `CONFIG_MODULE_SIG*`, `CONFIG_SECURITY_LOCKDOWN_LSM`.
-- **Source integrity** — the upstream tarball/tag must be verified (checksum /
-  signature) before building.
-- **Applied patches** — out-of-tree patches change kernel behavior; each should
-  be justified and reviewed.
-- **Build reproducibility** — an auditable, reproducible config and recipe.
+- **Source integrity** — upstream is fetched over HTTPS from
+  `android.googlesource.com` by the sync workflows, which merge it with the
+  repository's own token. A release is a tag; its source tarball is made with
+  `git archive` from that tag, pinned by SHA-256 in the slpkgs template, and
+  the resulting packages are signed with the Sunlight repository key.
+- **Applied patches** — out-of-tree patches change kernel behavior; each is
+  listed with its reason in [PATCHES.md](PATCHES.md). Patches that weaken a
+  protection (for example a boot option that allows unsigned modules) are not
+  carried.
+- **Build reproducibility** — the same tag gives the same tarball, and the
+  config is normalized with `make olddefconfig`.
 
 ## Reporting a Vulnerability
 
@@ -37,3 +43,5 @@ any public disclosure.
 
 > For vulnerabilities in the **upstream Linux kernel** itself (not Sunlight's
 > packaging), report them to the upstream kernel security process.
+
+[slpkgs]: https://github.com/sunlightlinux/slpkgs

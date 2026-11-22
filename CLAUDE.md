@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-Behavioral guidelines for LLM-assisted work on **slkernel** — the kernel
-packaging and configuration for Sunlight Linux (a UEFI-only distribution).
+Behavioral guidelines for LLM-assisted work on **slkernel** — the kernel of
+Sunlight Linux (a UEFI-only distribution).
 
 > Derived from [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills)
 > (MIT), based on [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876)
@@ -9,10 +9,11 @@ packaging and configuration for Sunlight Linux (a UEFI-only distribution).
 > packaging recipes, and the fact that a bad config yields an **unbootable**
 > system.
 
-> **Status:** early bootstrap. The repo will hold the kernel build recipe and
-> the Sunlight kernel config(s), tracking an upstream Linux release with a
-> small, documented delta. The packaging model follows void-packages'
-> `srcpkgs/linux*` templates (slpkgs is a void-packages fork).
+> **Layout:** the kernel source is on the `next` / `next-full` branches (AOSP
+> `android-mainline` / `android-mainline-desktop` plus Sunlight patches, kept
+> current by CI); `main` holds docs and CI. The build recipe and `.config` are
+> in slpkgs (`srcpkgs/linux-next*`, modelled on void-packages'
+> `srcpkgs/linux*`). See README.md for branches, tags and releases.
 
 **Tradeoff:** These guidelines bias toward caution over speed. A single wrong
 Kconfig symbol can make every install fail to boot, and the failure shows up
@@ -106,7 +107,7 @@ For multi-step tasks, state a brief plan:
 **Verification in slkernel:**
 - `make olddefconfig` then `git diff` the config — the delta is exactly what you
   meant.
-- Build the kernel package (recipe-driven).
+- Build the kernel package with the slpkgs recipe (`./xbps-src pkg linux-next-full`).
 - **Boot-test in a VM** — QEMU + OVMF (UEFI firmware) against a scratch image.
   This is the only honest test that the kernel boots the distro.
 - Confirm the symbol took effect: `zcat /proc/config.gz` (or `/boot/config-*`)
@@ -120,19 +121,29 @@ work") require constant clarification.
 ## slkernel Project Context
 
 ### Positioning
-- Kernel packaging + config for Sunlight Linux: pin an upstream Linux version,
-  apply the Sunlight (low-latency) config, optionally a small patch set, and
-  package it.
-- Does **not** vendor the kernel source tree; references an upstream release.
+- The Sunlight Linux kernel: AOSP's mainline branches merged in daily, a small
+  set of `SUNLIGHT:` patches on top, a release per `localversion` tag
+  (`7.3.0-lowlatency-sunlight-n<N>` / `nf<N>`), packaged by slpkgs.
+- **Branches are not interchangeable.** `main` = docs + CI; `mainline-check*`
+  = upstream as merged by CI; `next` / `next-full` = what ships. The user
+  switches between them in one checkout, so check `git symbolic-ref HEAD`
+  before any merge or commit, and prefer a `git worktree` for kernel work.
+- `next` / `next-full` move every night (CI merge commits): fetch and compare
+  with `origin` before committing, and push soon after.
 
 ### Invariants
 - **UEFI-bootable.** Keep the options required to boot under UEFI and to mount
   what the installer creates.
 - **Low-latency profile.** Preemption-related options are deliberate.
-- **Small, documented upstream delta.** Config over patches; justify each.
-- **Auditable, reproducible build.** Verified source, normalized config.
+- **Small, documented upstream delta.** Config over patches; justify each,
+  and record it in PATCHES.md (including what was evaluated and left out).
+- **Auditable, reproducible build.** A tag gives one `git archive` tarball,
+  pinned by SHA-256 in the slpkgs template; the config is normalized with
+  `make olddefconfig`.
 
 ### Reference sources
+- **AOSP kernel/common** (`android-mainline`, `android-mainline-desktop`):
+  <https://android.googlesource.com/kernel/common> — the upstream of `next*`.
 - **void-packages** `srcpkgs/linux*`:
   <https://github.com/void-linux/void-packages> — packaging model (slpkgs is a
   fork of it). Check it first for *how the package is built*.
@@ -142,6 +153,11 @@ work") require constant clarification.
   the tree that wires the projects together.
 
 ### Commit style
-- **Bundle, don't over-split.** One commit per session of work. Commit
-  messages: `area: short summary` + a paragraph on *why*, not *what* (the diff
-  already shows what).
+- **Kernel branches:** `SUNLIGHT: <area>: summary`, then `Description:` with
+  ` - ` points, `Bug: N/A`, the `Change-Id` from Gerrit's commit-msg hook, and
+  `Signed-off-by`. A ported patch has the porter as author and keeps the
+  original `Signed-off-by`, or gets `Originally-by:` when it had none — never
+  a `Signed-off-by` written for someone else. See CONTRIBUTING.md.
+- **`main`:** `area: short summary` + a paragraph on *why*, not *what* (the
+  diff already shows what); no `Change-Id` (commit with `--no-verify`).
+- **Bundle, don't over-split** on `main`: one commit per session of work.
