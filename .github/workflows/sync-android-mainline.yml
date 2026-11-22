@@ -12,7 +12,11 @@ name: Sync android-mainline
 
 on:
   schedule:
+    # Twice a day: GitHub starts scheduled runs late, and sometimes skips
+    # them for days. A run with nothing new to merge does nothing, so the
+    # second one only covers the days the first is dropped.
     - cron: '0 3 * * *'
+    - cron: '0 15 * * *'
   workflow_dispatch:
 
 permissions:

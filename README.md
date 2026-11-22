@@ -30,7 +30,8 @@ Kernel's own changes (commits prefixed `ANDROID:`, `UPSTREAM:`, `FROMGIT:`).
 Two GitHub Actions workflows on `main` move upstream changes forward, each as
 a `SUNLIGHT: Mainline <date> - ANDROID` merge commit:
 
-1. **Sync android-mainline** (daily, 03:00 UTC):
+1. **Sync android-mainline** (scheduled at 03:00 and 15:00 UTC; GitHub may
+   start a scheduled run hours late or skip it, hence twice a day):
    `android-mainline` → `mainline-check`,
    `android-mainline-desktop` → `mainline-check-full`.
 2. **Sync next** (after every run of the first):
