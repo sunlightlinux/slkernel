@@ -98,7 +98,6 @@ _RUST_GKI_MODULES_LIST = [
 
 _ARM_GKI_MODULES_LIST = [
     # keep sorted
-    "drivers/ptp/ptp_kvm.ko",
 ]
 
 _ARM64_GKI_MODULES_LIST = [
@@ -110,19 +109,16 @@ _ARM64_GKI_MODULES_LIST = [
     "drivers/hwtracing/coresight/coresight-funnel.ko",
     "drivers/hwtracing/coresight/coresight-replicator.ko",
     "drivers/hwtracing/coresight/coresight-trbe.ko",
-    "drivers/ptp/ptp_kvm.ko",
 ]
 
 _X86_GKI_MODULES_LIST = [
     # keep sorted
     "drivers/power/sequencing/pwrseq-core.ko",
-    "drivers/ptp/ptp_kvm.ko",
 ]
 
 _X86_64_GKI_MODULES_LIST = [
     # keep sorted
     "drivers/power/sequencing/pwrseq-core.ko",
-    "drivers/ptp/ptp_kvm.ko",
 ]
 
 def _apply(map_each, lst):
