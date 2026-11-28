@@ -1,46 +1,69 @@
 # slkernel
 
-The kernel of **Sunlight Linux**: a low-latency Linux kernel built from the
-Android Common Kernel's mainline branches, carrying a small set of Sunlight
-patches, and packaged for the distribution by [slpkgs].
+**The Linux kernel of Sunlight Linux: AOSP's `android-mainline` branches
+plus a small set of Sunlight patches, released as tags.** CI merges
+upstream into the kernel branches; each release is a `localversion` tag,
+shipped as the `linux-next` and `linux-next-full` packages.
 
-The default kernel of a Sunlight install comes from here (`linux-next`), as
-does the optional `linux-next-full`.
+| Project | Details |
+|---|---|
+| **Latest release** | `7.3.0-lowlatency-sunlight-n2` (`linux-next`) and `7.3.0-lowlatency-sunlight-nf5` (`linux-next-full`), both tagged 2026-11-22; tags only, no GitHub releases |
+| **Release contract** | `uname -r` of a kernel built from a tag is the tag name — see [the release-tag spec][tags-spec] |
+| **Upstream** | [AOSP kernel/common]: `android-mainline` and `android-mainline-desktop`, Linux 7.3.0 at every tag so far |
+| **Requires** | x86_64 with UEFI firmware (Sunlight is UEFI-only); the build recipe and `.config` live in [slpkgs] and are not yet public |
+| **License** | Kernel branches: GPL-2.0 (Linux); documentation and CI on `main`: [Apache 2.0](LICENSE) |
+
+The upstream is Linux mainline as carried by the Android Common Kernel
+(AOSP's own commits are prefixed `ANDROID:`, `UPSTREAM:`, `FROMGIT:`).
+Sunlight's commits are prefixed `SUNLIGHT:`: on `next`, only the patches
+that make `uname -r` equal the tag; on `next-full`, those plus fifteen
+performance and log-noise patches ported from Clear Linux, each listed in
+[PATCHES.md](PATCHES.md). slkernel takes over from `linux-sunlight`, the
+organization's standalone kernel tree, which is being retired at 7.4.
+
+**Deliberately out of scope:** choosing or bumping a Linux release (the
+tree is whatever AOSP's branches carry; history is merged, never rebased);
+the kernel `.config` and the package recipe, which belong to slpkgs; and
+patches with a config-only or runtime alternative (a sysctl, a slinit
+service option), or that weaken a protection such as module signing.
+
+> **New here?** Read [Branches](#branches) and
+> [Versions and tags](#versions-and-tags) below: which branch is which, and
+> what a tag promises. To change a kernel branch, then read
+> [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Branches
 
-The kernel source lives on its own branches; `main` holds only this
+The kernel source lives on its own branches; `main` holds only the
 documentation and the CI that keeps those branches current.
 
 | Branch | What it is | Package |
 |---|---|---|
 | `main` | documentation and CI workflows | — |
-| `mainline-check` | AOSP `android-mainline`, merged daily | — |
-| `mainline-check-full` | AOSP `android-mainline-desktop`, merged daily | — |
-| `next` | `mainline-check` + Sunlight patches | `linux-next` (default kernel) |
-| `next-full` | `mainline-check-full` + Sunlight patches | `linux-next-full` |
+| `mainline-check` | AOSP `android-mainline`, merged by CI | — |
+| `mainline-check-full` | AOSP `android-mainline-desktop`, merged by CI | — |
+| `next` | `mainline-check` + Sunlight's versioning patches | `linux-next` (default kernel) |
+| `next-full` | `mainline-check-full` + versioning and [PATCHES.md](PATCHES.md) patches | `linux-next-full` |
 
-The upstream is [AOSP kernel/common]: Linux mainline plus the Android Common
-Kernel's own changes (commits prefixed `ANDROID:`, `UPSTREAM:`, `FROMGIT:`).
-`next-full` also carries the performance patches listed in
-[PATCHES.md](PATCHES.md); `next` carries only the versioning patches.
+Read the kernel branches with `git show <branch>:<path>` or a
+`git worktree`; switching a `main` checkout to them replaces the whole tree.
 
 ## How the source stays current
 
-Two GitHub Actions workflows on `main` move upstream changes forward, each as
-a `SUNLIGHT: Mainline <date> - ANDROID` merge commit:
+Two GitHub Actions workflows on `main` move upstream changes forward, each
+as a `SUNLIGHT: Mainline <date> - ANDROID` merge commit:
 
-1. **Sync android-mainline** (scheduled at 03:00 and 15:00 UTC; GitHub may
-   start a scheduled run hours late or skip it, hence twice a day):
-   `android-mainline` → `mainline-check`,
-   `android-mainline-desktop` → `mainline-check-full`.
-2. **Sync next** (after every run of the first):
-   `mainline-check` → `next`, `mainline-check-full` → `next-full`.
+| Workflow | When | Merges |
+|---|---|---|
+| **Sync android-mainline** | scheduled at 03:00 and 15:00 UTC, or by hand | `android-mainline` → `mainline-check`, `android-mainline-desktop` → `mainline-check-full` |
+| **Sync next** | after every run of the first, or by hand | `mainline-check` → `next`, `mainline-check-full` → `next-full` |
 
-Both merge with `git merge-tree` in a blobless clone and push only when there
-is something new. A merge conflict fails the job instead of guessing: merge
-the branches by hand, push, and the next run carries on. Because `next` and
-`next-full` move on their own, pull before committing to them locally.
+GitHub may start a scheduled run hours late or skip it, hence two a day; a
+run with nothing new exits early. Both merge with `git merge-tree` in a
+blobless clone and push only when there is something new. A merge conflict
+fails the job instead of guessing: merge the branches by hand, push, and
+the next run carries on. Because `next` and `next-full` move on their own,
+pull before committing to them locally.
 
 ## Versions and tags
 
@@ -51,23 +74,38 @@ Every release of the kernel is a tag on its branch:
 7.3.0-lowlatency-sunlight-nf<N>   on next-full  (linux-next-full)
 ```
 
-The suffix comes from the `localversion` file at the top of the tree, so the
-running kernel reports the tag it was built from:
+| Tag | Date | Branch |
+|---|---|---|
+| `n1`, `n2` | 2026-11-15, 2026-11-22 | `next` |
+| `nf1` | 2026-11-15 | `next-full` |
+| `nf2` .. `nf5` | 2026-11-22 | `next-full` |
+
+Each tag sits on the commit that writes the `localversion` file at the top
+of the tree, and the release suffix comes from that file alone:
 
 ```
-$ uname -r
+$ git show 7.3.0-lowlatency-sunlight-nf5:localversion
+-lowlatency-sunlight-nf5
+$ uname -r          # a kernel built from that tag
 7.3.0-lowlatency-sunlight-nf5
 ```
 
-`7.3.0` is the Linux version of the tree; `n<N>`/`nf<N>` counts Sunlight
-releases of it. The package version stays `7.3.0` and its revision follows
-`<N>`.
+The tags are lightweight. Upstream's `scripts/setlocalversion` only
+considers *annotated* tags when it looks for a tag matching
+`localversion`, so it never finds these; the two `setlocalversion`
+patches in [PATCHES.md](PATCHES.md) put the file's contents at the end of
+the release string and drop the `+` it would otherwise append.
+
+`7.3.0` is the Linux version of the tree; `n<N>` and `nf<N>` are separate
+counters, one per branch. The branch tips move past the last tag with
+every upstream merge, so a tag, not a branch, names a shipped kernel.
 
 ## Building a release
 
-The build recipe is in slpkgs, not here: `srcpkgs/linux-next` and
-`srcpkgs/linux-next-full` (each with `-headers` and `-dbg` subpackages),
-modelled on void-packages' `srcpkgs/linux*`.
+The build recipe is in slpkgs, as `linux-next` and `linux-next-full`
+templates (each with `-headers` and `-dbg` subpackages) modelled on
+void-packages' `srcpkgs/linux*`. Those templates are not yet in a public
+slpkgs branch.
 
 1. Commit the new suffix to `localversion` and tag the commit (see
    [CONTRIBUTING.md](CONTRIBUTING.md#cutting-a-release)).
@@ -84,29 +122,32 @@ modelled on void-packages' `srcpkgs/linux*`.
 5. Build with `./xbps-src pkg linux-next-full`, then sign and publish the
    packages to the mirror.
 
-> ⚠️ A broken kernel can leave a system unbootable, and the failure shows only
-> after the build succeeds. Boot every new kernel in a VM (QEMU + OVMF, since
-> Sunlight is UEFI-only) before publishing it. A newly installed kernel sits
-> next to the previous one, which stays in the GRUB menu as a fallback.
+> **Warning:** a broken kernel can leave a system unbootable, and the
+> failure shows only after the build succeeds. Boot every new kernel in a VM
+> (QEMU + OVMF, since Sunlight is UEFI-only) before publishing it. A newly
+> installed kernel sits next to the previous one, which stays in the GRUB
+> menu as a fallback.
 
 ## Configuration
 
-The kernel `.config` is kept in slpkgs as
-`srcpkgs/linux-next*/files/x86_64-dotconfig`. It started from void-packages'
-`linux6.18` config (with `CONFIG_LOCALVERSION=""`, since `localversion`
-supplies the suffix) and is brought up to the tree's version with
-`make olddefconfig` at build time. The profile that matters:
+The kernel `.config` is not on any branch of this repository. It is kept
+with the slpkgs templates (as `files/x86_64-dotconfig`), which are not yet
+public, so what follows is the intended profile, not something a reader can
+check today:
 
-- **Low latency:** `CONFIG_PREEMPT=y` with `PREEMPT_DYNAMIC` (full preemption
-  at runtime) and `CONFIG_HZ=1000`.
-- **Modular storage:** disk controllers and filesystems are modules, so the
-  kernel needs an initramfs. Sunlight's base depends on `linux-base`, which
-  brings dracut; the kernel's install hooks generate the initramfs.
-- **UEFI boot:** the EFI options and the filesystems the installer creates
-  must stay enabled.
+| Area | Intent | What can be checked |
+|---|---|---|
+| Origin | started from void-packages' `linux6.18` config, normalized with `make olddefconfig` at build time | the Void original is public in slpkgs |
+| Release suffix | `CONFIG_LOCALVERSION=""`, so `localversion` alone supplies the suffix | Void's config has `CONFIG_LOCALVERSION="_1"`, so this must be a change |
+| Preemption | low latency, `CONFIG_HZ=1000`, preemption mode selectable at boot (`PREEMPT_DYNAMIC`) | Void's config has `CONFIG_PREEMPT_VOLUNTARY=y`, `# CONFIG_PREEMPT is not set`, `CONFIG_PREEMPT_DYNAMIC=y`, `CONFIG_HZ=1000`; whether the linux-next config sets `CONFIG_PREEMPT=y` (full preemption by default) is **not verified** |
+| Storage | disk controllers and filesystems as modules, so an initramfs is required; Sunlight's base brings dracut through `linux-base` | Void's config has `CONFIG_EXT4_FS=m`, `CONFIG_SATA_AHCI=m`, `CONFIG_BLK_DEV_NVME=y` |
+| UEFI | the EFI options and the filesystems the installer creates stay enabled | Void's config has `CONFIG_EFI=y`, `CONFIG_EFI_STUB=y`, `CONFIG_EFIVAR_FS=y` |
 
-A dedicated Sunlight config, in place of the adapted Void one, is still to
-come.
+On a running kernel, `zcat /proc/config.gz | grep -E 'CONFIG_PREEMPT[=_ ]'`
+or the `PREEMPT` words in `uname -v` settle the preemption question. What
+is and is not known about the config is tracked in sldocs'
+[kernel configuration record][config-doc]. A dedicated Sunlight config, in
+place of the adapted Void one, is still to come.
 
 ## Where this fits
 
@@ -121,13 +162,29 @@ repo sync -j4
 
 ## Documentation
 
-- [PATCHES.md](PATCHES.md) — the Sunlight patches, and the Clear Linux patches
-  evaluated for them
-- [CONTRIBUTING.md](CONTRIBUTING.md) — commit format, patches, cutting a release
-- [SECURITY.md](SECURITY.md) — reporting security issues
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — community standards
-- [CLAUDE.md](CLAUDE.md) / [EXAMPLES.md](EXAMPLES.md) — guidelines for
-  LLM-assisted work on the kernel
+| Document | What it covers |
+|---|---|
+| [PATCHES.md](PATCHES.md) | the Sunlight patches on `next` and `next-full`, and every Clear Linux patch evaluated for them, with why it was ported or not |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | where a change goes, commit format and Change-Id hook, porting a patch, cutting a release |
+| [SECURITY.md](SECURITY.md) | what is security-relevant here, and how to report an issue |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | community standards |
+| [CLAUDE.md](CLAUDE.md) | guidelines for LLM-assisted work on the kernel and its config |
+| [EXAMPLES.md](EXAMPLES.md) | worked examples for those guidelines |
+| [Release-tag spec][tags-spec] (sldocs) | what a tag promises a packager, checked against the repository |
+| [Kernel configuration record][config-doc] (sldocs) | what is known about the `.config`, and the open preemption question |
+
+## Testing
+
+There is no test suite in this repository; the test of a kernel is booting
+it. Build the package with the slpkgs recipe, boot it in QEMU with OVMF
+against a scratch image, and confirm the change took effect with
+`uname -r`, `/boot/config-*` (or `/proc/config.gz`) and `dmesg`.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Kernel patches go to `next` and/or
+`next-full` with a `SUNLIGHT:` subject and a Gerrit `Change-Id`; changes to
+the documentation and workflows go to `main`.
 
 ## License
 
@@ -139,3 +196,5 @@ the same terms.
 [slpkgs]: https://github.com/sunlightlinux/slpkgs
 [slmanifests]: https://github.com/sunlightlinux/slmanifests
 [AOSP kernel/common]: https://android.googlesource.com/kernel/common
+[tags-spec]: https://github.com/sunlightlinux/sldocs/blob/e87265b7c88cda95b234eb1d42c7e9faa19f2916/specs/slkernel-release-tags.md
+[config-doc]: https://github.com/sunlightlinux/sldocs/blob/e87265b7c88cda95b234eb1d42c7e9faa19f2916/config/slkernel-kernel-config.md

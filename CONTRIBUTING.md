@@ -16,11 +16,12 @@ release is built; this page covers how to change them.
 | Change | Where |
 |---|---|
 | Kernel source (patches) | `next` and/or `next-full` in this repository |
-| Kernel `.config`, build recipe | [slpkgs]: `srcpkgs/linux-next*` |
+| Kernel `.config`, build recipe | [slpkgs]: the `linux-next` and `linux-next-full` templates (not yet in a public branch) |
 | Documentation, CI workflows | `main` in this repository |
 
-`next` and `next-full` receive a merge from upstream every night (see
-README.md), so pull before you commit to them, and push soon after.
+`next` and `next-full` receive a CI merge whenever upstream moves (checked
+twice a day; see README.md), so pull before you commit to them, and push
+soon after.
 
 ## Commit format
 
@@ -97,7 +98,8 @@ git tag 7.3.0-lowlatency-sunlight-nf6
 git push origin next-full 7.3.0-lowlatency-sunlight-nf6
 ```
 
-Tags are lightweight, on the `localversion` commit. Then build the package
+Tags are lightweight, on the `localversion` commit; the release suffix comes
+from the `localversion` file alone, not from the tag. Then build the package
 from the tag as described in [README.md](README.md#building-a-release).
 
 ## Testing

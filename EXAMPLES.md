@@ -122,11 +122,13 @@ the kernel and widen the attack surface.
 **What should happen:**
 
 ```diff
-+CONFIG_EXT4_FS=y
++CONFIG_EXT4_FS=m
 ```
 
-Built-in (`=y`, not `=m`) so the root filesystem mounts without an initramfs
-module. Add other filesystems when the installer actually offers them.
+A module, like the other storage drivers: Sunlight boots through an initramfs
+(dracut, via `linux-base`), which loads it before mounting root. Built-in
+(`=y`) is only needed on a kernel booted without an initramfs. Add other
+filesystems when the installer actually offers them.
 
 ---
 
@@ -228,30 +230,39 @@ Plan:
 No "EFI-sounding" symbols added on a hunch — find the one that's actually
 missing.
 
-### Example 2 — Multi-Step Upstream Rebase
+### Example 2 — Multi-Step Release After an Upstream Move
 
-**User request:** "Move to the next upstream Linux release."
+**User request:** "Release the kernel now that upstream moved to the next
+Linux version."
+
+(CI merges AOSP's `android-mainline` branches into `next` / `next-full`, so
+the tree's version changes on its own; the release work is the tag, the
+config and the package.)
 
 **What LLMs often do (all at once):**
 
-Bump the version, regenerate the config with `make defconfig`, re-roll all
-patches, and commit — untested, with the low-latency tuning lost.
+Regenerate the config with `make defconfig`, re-roll all patches, tag and
+publish — untested, with the low-latency tuning lost.
 
 **What should happen (incremental):**
 
 ```
 Plan:
-1. Bump the upstream version in the recipe; update the source checksum.
-   Verify: the source fetches and its checksum/signature verifies.
+1. Check the merged tree: the `Makefile` version, and that the `SUNLIGHT:`
+   patches survived the merge.
+   Verify: `git log --no-merges mainline-check-full..next-full` lists them.
 2. Carry the existing config forward: `make olddefconfig`.
    Verify: review every NEW symbol it prompts/sets — accept deliberately, not
    blindly; git diff is understandable.
-3. Re-apply the patch set; drop patches now upstream.
-   Verify: each patch applies cleanly or is removed with a note.
-4. Build the package.
-   Verify: build succeeds.
+3. Drop patches that upstream now makes redundant.
+   Verify: each is removed with a note in PATCHES.md.
+4. Tag the `localversion` commit with the new version prefix, make the
+   tarball from the tag, update the template's checksum and `_kernver`, and
+   build the package.
+   Verify: build succeeds, and `_kernver` equals the tag.
 5. Boot-test in QEMU + OVMF.
-   Verify: boots to login; low-latency profile intact (CONFIG_PREEMPT still y);
+   Verify: boots to login; preemption options unchanged from the previous
+   config (`/proc/config.gz`);
    spot-check key drivers in dmesg.
 ```
 
@@ -265,7 +276,7 @@ regenerated.
 | Principle | Anti-pattern | Fix |
 |---|---|---|
 | Think Before Coding | `CONFIG_BT=y` for "enable Bluetooth" | Ask built-in vs module + which sub-options; `make olddefconfig` |
-| Simplicity First | Enable a zoo of filesystems for an ext4 request | Set only `CONFIG_EXT4_FS=y` |
+| Simplicity First | Enable a zoo of filesystems for an ext4 request | Set only `CONFIG_EXT4_FS` (`=m`, loaded by the initramfs) |
 | Surgical Changes | `make defconfig` (+ version bump) to add one driver | Set the one symbol, `make olddefconfig`, diff |
 | Goal-Driven | Add "EFI-sounding" symbols on a hunch for a no-boot | Reproduce in QEMU+OVMF, find the one missing symbol, fix it |
 

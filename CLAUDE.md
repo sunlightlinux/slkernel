@@ -12,8 +12,9 @@ Sunlight Linux (a UEFI-only distribution).
 > **Layout:** the kernel source is on the `next` / `next-full` branches (AOSP
 > `android-mainline` / `android-mainline-desktop` plus Sunlight patches, kept
 > current by CI); `main` holds docs and CI. The build recipe and `.config` are
-> in slpkgs (`srcpkgs/linux-next*`, modelled on void-packages'
-> `srcpkgs/linux*`). See README.md for branches, tags and releases.
+> slpkgs templates (`linux-next`, `linux-next-full`, modelled on
+> void-packages' `srcpkgs/linux*`) that are not yet in a public slpkgs
+> branch. See README.md for branches, tags and releases.
 
 **Tradeoff:** These guidelines bias toward caution over speed. A single wrong
 Kconfig symbol can make every install fail to boot, and the failure shows up
@@ -121,15 +122,16 @@ work") require constant clarification.
 ## slkernel Project Context
 
 ### Positioning
-- The Sunlight Linux kernel: AOSP's mainline branches merged in daily, a small
+- The Sunlight Linux kernel: AOSP's mainline branches merged in by CI, a small
   set of `SUNLIGHT:` patches on top, a release per `localversion` tag
   (`7.3.0-lowlatency-sunlight-n<N>` / `nf<N>`), packaged by slpkgs.
 - **Branches are not interchangeable.** `main` = docs + CI; `mainline-check*`
   = upstream as merged by CI; `next` / `next-full` = what ships. The user
   switches between them in one checkout, so check `git symbolic-ref HEAD`
   before any merge or commit, and prefer a `git worktree` for kernel work.
-- `next` / `next-full` move every night (CI merge commits): fetch and compare
-  with `origin` before committing, and push soon after.
+- `next` / `next-full` move on their own (CI checks upstream twice a day and
+  merges what is new): fetch and compare with `origin` before committing, and
+  push soon after.
 
 ### Invariants
 - **UEFI-bootable.** Keep the options required to boot under UEFI and to mount
