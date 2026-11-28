@@ -13,8 +13,10 @@ Sunlight Linux (a UEFI-only distribution).
 > `android-mainline` / `android-mainline-desktop` plus Sunlight patches, kept
 > current by CI); `main` holds docs and CI. The build recipe and `.config` are
 > slpkgs templates (`linux-next`, `linux-next-full`, modelled on
-> void-packages' `srcpkgs/linux*`) that are not yet in a public slpkgs
-> branch. See README.md for branches, tags and releases.
+> void-packages' `srcpkgs/linux*`) on slpkgs' `next` branch. The `.config`
+> there is only the input to `make olddefconfig`; check a symbol in the
+> result, not in the file (README.md, Configuration). See README.md for
+> branches, tags and releases.
 
 **Tradeoff:** These guidelines bias toward caution over speed. A single wrong
 Kconfig symbol can make every install fail to boot, and the failure shows up

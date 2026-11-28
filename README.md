@@ -10,7 +10,7 @@ shipped as the `linux-next` and `linux-next-full` packages.
 | **Latest release** | `7.3.0-lowlatency-sunlight-n2` (`linux-next`) and `7.3.0-lowlatency-sunlight-nf5` (`linux-next-full`), both tagged 2026-11-22; tags only, no GitHub releases |
 | **Release contract** | `uname -r` of a kernel built from a tag is the tag name — see [the release-tag spec][tags-spec] |
 | **Upstream** | [AOSP kernel/common]: `android-mainline` and `android-mainline-desktop`, Linux 7.3.0 at every tag so far |
-| **Requires** | x86_64 with UEFI firmware (Sunlight is UEFI-only); the build recipe and `.config` live in [slpkgs] and are not yet public |
+| **Requires** | x86_64 with UEFI firmware (Sunlight is UEFI-only); the build recipe and `.config` live in [slpkgs], on its `next` branch |
 | **License** | Kernel branches: GPL-2.0 (Linux); documentation and CI on `main`: [Apache 2.0](LICENSE) |
 
 The upstream is Linux mainline as carried by the Android Common Kernel
@@ -104,8 +104,9 @@ every upstream merge, so a tag, not a branch, names a shipped kernel.
 
 The build recipe is in slpkgs, as `linux-next` and `linux-next-full`
 templates (each with `-headers` and `-dbg` subpackages) modelled on
-void-packages' `srcpkgs/linux*`. Those templates are not yet in a public
-slpkgs branch.
+void-packages' `srcpkgs/linux*`, on slpkgs' `next` branch
+([`linux-next`][tpl-next], [`linux-next-full`][tpl-next-full] at the
+commit that published them).
 
 1. Commit the new suffix to `localversion` and tag the commit (see
    [CONTRIBUTING.md](CONTRIBUTING.md#cutting-a-release)).
@@ -130,24 +131,43 @@ slpkgs branch.
 
 ## Configuration
 
-The kernel `.config` is not on any branch of this repository. It is kept
-with the slpkgs templates (as `files/x86_64-dotconfig`), which are not yet
-public, so what follows is the intended profile, not something a reader can
-check today:
+The kernel `.config` is not on any branch of this repository. It is the
+slpkgs file [`srcpkgs/linux-next/files/x86_64-dotconfig`][dotconfig];
+`linux-next-full` carries a byte-identical copy. The templates'
+`do_configure` copies it to `.config` and runs `make olddefconfig`
+against the tag's tree, so the file is only the input: the kernel's
+configuration is what `olddefconfig` makes of it for 7.3.0.
 
-| Area | Intent | What can be checked |
+| Area | The file in slpkgs | The kernel built from a tag |
 |---|---|---|
-| Origin | started from void-packages' `linux6.18` config, normalized with `make olddefconfig` at build time | the Void original is public in slpkgs |
-| Release suffix | `CONFIG_LOCALVERSION=""`, so `localversion` alone supplies the suffix | Void's config has `CONFIG_LOCALVERSION="_1"`, so this must be a change |
-| Preemption | low latency, `CONFIG_HZ=1000`, preemption mode selectable at boot (`PREEMPT_DYNAMIC`) | Void's config has `CONFIG_PREEMPT_VOLUNTARY=y`, `# CONFIG_PREEMPT is not set`, `CONFIG_PREEMPT_DYNAMIC=y`, `CONFIG_HZ=1000`; whether the linux-next config sets `CONFIG_PREEMPT=y` (full preemption by default) is **not verified** |
-| Storage | disk controllers and filesystems as modules, so an initramfs is required; Sunlight's base brings dracut through `linux-base` | Void's config has `CONFIG_EXT4_FS=m`, `CONFIG_SATA_AHCI=m`, `CONFIG_BLK_DEV_NVME=y` |
-| UEFI | the EFI options and the filesystems the installer creates stay enabled | Void's config has `CONFIG_EFI=y`, `CONFIG_EFI_STUB=y`, `CONFIG_EFIVAR_FS=y` |
+| Origin | Void's `linux6.18` dotconfig as of void-packages `c1c64954f37` ("linux6.18: update to 6.18.32"), with one line changed | brought up to 7.3.0 by `olddefconfig` |
+| Release suffix | `CONFIG_LOCALVERSION=""` (Void's is `"_1"`), so `localversion` alone supplies the suffix | unchanged |
+| Preemption | `CONFIG_PREEMPT_VOLUNTARY=y`, `# CONFIG_PREEMPT is not set`, `CONFIG_PREEMPT_DYNAMIC=y`, `CONFIG_HZ=1000` | `CONFIG_PREEMPT=y`, `CONFIG_PREEMPT_DYNAMIC=y`, `CONFIG_HZ=1000`: full preemption by default, `preempt=lazy` the only alternative at boot |
+| Storage | disk controllers and filesystems as modules (`CONFIG_EXT4_FS=m`, `CONFIG_SATA_AHCI=m`; `CONFIG_BLK_DEV_NVME=y`), so an initramfs is required; Sunlight's base brings dracut through `linux-base` | unchanged |
+| UEFI | `CONFIG_EFI=y`, `CONFIG_EFI_STUB=y`, `CONFIG_EFIVAR_FS=y` | unchanged |
 
-On a running kernel, `zcat /proc/config.gz | grep -E 'CONFIG_PREEMPT[=_ ]'`
-or the `PREEMPT` words in `uname -v` settle the preemption question. What
-is and is not known about the config is tracked in sldocs'
-[kernel configuration record][config-doc]. A dedicated Sunlight config, in
-place of the adapted Void one, is still to come.
+The preemption row differs because in the 7.3.0 tree
+`PREEMPT_VOLUNTARY` depends on `!ARCH_HAS_PREEMPT_LAZY`, which
+`arch/x86/Kconfig` selects, so `olddefconfig` cannot keep the file's
+choice and resolves it to `CONFIG_PREEMPT=y`. The right-hand column was
+measured by running `make ARCH=x86_64 olddefconfig` with that file on a
+`git archive` of the `n2` and `nf5` tags (both gave the same values);
+no built kernel's `/proc/config.gz` was read. On a running kernel,
+`zcat /proc/config.gz | grep -E 'CONFIG_PREEMPT[=_ ]'` and the
+`Dynamic Preempt:` line in `dmesg` confirm it.
+
+**Correction (2026-11-28).** Before commit `7c4af55` this section
+stated `CONFIG_PREEMPT=y` with `PREEMPT_DYNAMIC` as the configuration;
+`7c4af55` marked that as not verified, because Void's file sets
+`CONFIG_PREEMPT_VOLUNTARY=y`. The original statement is right about the
+built kernel and wrong about the file: the file in slpkgs does not set
+`CONFIG_PREEMPT=y`; `olddefconfig` does, because it cannot keep
+voluntary preemption on x86 in this tree. Setting voluntary preemption
+in the file therefore has no effect on these kernels.
+
+What is and is not known about the config is tracked in sldocs'
+[kernel configuration record][config-doc]. A dedicated Sunlight config,
+in place of the adapted Void one, is still to come.
 
 ## Where this fits
 
@@ -171,7 +191,7 @@ repo sync -j4
 | [CLAUDE.md](CLAUDE.md) | guidelines for LLM-assisted work on the kernel and its config |
 | [EXAMPLES.md](EXAMPLES.md) | worked examples for those guidelines |
 | [Release-tag spec][tags-spec] (sldocs) | what a tag promises a packager, checked against the repository |
-| [Kernel configuration record][config-doc] (sldocs) | what is known about the `.config`, and the open preemption question |
+| [Kernel configuration record][config-doc] (sldocs) | what is known about the `.config` |
 
 ## Testing
 
@@ -194,7 +214,10 @@ licensed GPL-2.0 (see `COPYING` there); Sunlight's patches to it are under
 the same terms.
 
 [slpkgs]: https://github.com/sunlightlinux/slpkgs
+[tpl-next]: https://github.com/sunlightlinux/slpkgs/tree/21a8fc38ba87061cb9328e69643749ba6e5f66a6/srcpkgs/linux-next
+[tpl-next-full]: https://github.com/sunlightlinux/slpkgs/tree/21a8fc38ba87061cb9328e69643749ba6e5f66a6/srcpkgs/linux-next-full
+[dotconfig]: https://github.com/sunlightlinux/slpkgs/blob/21a8fc38ba87061cb9328e69643749ba6e5f66a6/srcpkgs/linux-next/files/x86_64-dotconfig
 [slmanifests]: https://github.com/sunlightlinux/slmanifests
 [AOSP kernel/common]: https://android.googlesource.com/kernel/common
-[tags-spec]: https://github.com/sunlightlinux/sldocs/blob/e87265b7c88cda95b234eb1d42c7e9faa19f2916/specs/slkernel-release-tags.md
-[config-doc]: https://github.com/sunlightlinux/sldocs/blob/e87265b7c88cda95b234eb1d42c7e9faa19f2916/config/slkernel-kernel-config.md
+[tags-spec]: https://github.com/sunlightlinux/sldocs/blob/1fd7989a20e869d59201d4742159faef991dad4c/specs/slkernel-release-tags.md
+[config-doc]: https://github.com/sunlightlinux/sldocs/blob/1fd7989a20e869d59201d4742159faef991dad4c/config/slkernel-kernel-config.md

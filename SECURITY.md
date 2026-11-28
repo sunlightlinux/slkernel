@@ -14,7 +14,7 @@ full hardware privileges, so choices here are security-relevant:
   `android.googlesource.com` by the sync workflows, which merge it with the
   repository's own token. A release is a tag; its source tarball is made with
   `git archive` from that tag and pinned by SHA-256 in the slpkgs template
-  (not yet in a public slpkgs branch), and the resulting packages are signed
+  (on slpkgs' `next` branch), and the resulting packages are signed
   with the Sunlight repository key.
 - **Applied patches** — out-of-tree patches change kernel behavior; each is
   listed with its reason in [PATCHES.md](PATCHES.md). Patches that weaken a

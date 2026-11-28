@@ -16,7 +16,7 @@ release is built; this page covers how to change them.
 | Change | Where |
 |---|---|
 | Kernel source (patches) | `next` and/or `next-full` in this repository |
-| Kernel `.config`, build recipe | [slpkgs]: the `linux-next` and `linux-next-full` templates (not yet in a public branch) |
+| Kernel `.config`, build recipe | [slpkgs]: the `linux-next` and `linux-next-full` templates on its `next` branch |
 | Documentation, CI workflows | `main` in this repository |
 
 `next` and `next-full` receive a CI merge whenever upstream moves (checked
